@@ -1,0 +1,2 @@
+There are many cases where we don't need to create an agent to replace the workflow. Actually, I think agent development follows the same rule as software development: simplicity first.
+If my case has too many situations — I mean, I can't describe all of them for the LLM to handle — then I need to create an agent. But most of the time, a workflow is enough to do the job.
