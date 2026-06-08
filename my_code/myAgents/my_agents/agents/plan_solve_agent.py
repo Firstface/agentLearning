@@ -5,6 +5,7 @@ Planner 把复杂问题分解为有序子任务列表；Executor 逐步执行，
 """
 
 import ast
+import re
 from typing import List, Optional
 
 from ..core.agent import Agent
@@ -69,13 +70,39 @@ class PlanAndSolveAgent(Agent):
         except LLMError as e:
             print(f"\n规划阶段 LLM 调用失败: {e}")
             return []
-        try:
-            plan_str = response.split("```python")[1].split("```")[0].strip()
-            plan = ast.literal_eval(plan_str)
-            return plan if isinstance(plan, list) else []
-        except (ValueError, SyntaxError, IndexError) as e:
-            print(f"解析计划时出错: {e}")
-            return []
+        return self._parse_plan(response)
+
+    @staticmethod
+    def _parse_plan(response: str) -> List[str]:
+        """从模型输出中尽力解析出步骤列表，多重容错。"""
+        # 1) 优先取 ```python 代码块；取不到就退回整段文本
+        if "```python" in response:
+            segment = response.split("```python", 1)[1].split("```", 1)[0]
+        elif "```" in response:
+            segment = response.split("```", 1)[1].split("```", 1)[0]
+        else:
+            segment = response
+
+        # 2) 只截取第一个 [ ... ] 列表字面量，避免后续多余文本干扰
+        l, r = segment.find("["), segment.rfind("]")
+        if l != -1 and r != -1 and r > l:
+            list_src = segment[l : r + 1]
+            # 容错：中文逗号/引号归一化为英文
+            normalized = (
+                list_src.replace("，", ",").replace("“", '"').replace("”", '"').replace("’", "'").replace("‘", "'")
+            )
+            try:
+                plan = ast.literal_eval(normalized)
+                if isinstance(plan, list) and plan:
+                    return [str(x) for x in plan]
+            except (ValueError, SyntaxError):
+                # 3) 再退一步：用正则抽取引号内的字符串作为步骤
+                items = re.findall(r'["\']([^"\']+)["\']', list_src)
+                if items:
+                    return items
+
+        print("解析计划失败：模型未按要求输出 Python 列表。")
+        return []
 
     def _execute(self, question: str, plan: List[str]) -> str:
         """逐步执行计划，返回最后一步的结果作为最终答案。"""

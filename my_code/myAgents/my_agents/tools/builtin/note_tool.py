@@ -111,11 +111,71 @@ class NoteTool(Tool):
             self._save_index()
             return f"已删除笔记: {title}"
 
+        if action == "summary":
+            return self._summary()
+
         return f"错误：未知 action '{action}'。"
+
+    def _summary(self, recent_limit: int = 5) -> str:
+        """生成笔记库的概览（结构化）。
+
+        设计要点（参考 chapter9 NoteTool）：
+        - **聚合统计**字段（total_notes / type_distribution）始终全量，
+          因为它们只占常数 token，不会随笔记数量爆炸。
+        - **列表**字段（recent_notes）只取最近 N 条，避免大量笔记把
+          上下文撑爆。LLM 拿到 id 后可用 read(title=...) 二级展开看正文。
+        """
+        if not self._index:
+            return "笔记库为空（共 0 篇）。"
+
+        # 1) 计算聚合统计（type 来自 metadata，无则归为 'note'）
+        items = []
+        type_dist: Dict[str, int] = {}
+        for t, meta in self._index.items():
+            note_type = meta.get("type", "note")
+            type_dist[note_type] = type_dist.get(note_type, 0) + 1
+            try:
+                with open(meta["path"], "r", encoding="utf-8") as f:
+                    body = f.read()
+            except Exception:
+                body = ""
+            items.append(
+                {
+                    "title": t,
+                    "type": note_type,
+                    "updated": meta.get("updated", ""),
+                    "char_count": len(body),
+                    "preview": next(
+                        (
+                            ln[:30]
+                            for ln in body.splitlines()
+                            if ln.strip() and not ln.startswith("# ")
+                        ),
+                        "(空)",
+                    ),
+                }
+            )
+
+        # 2) 按更新时间倒序，截断到 recent_limit
+        items.sort(key=lambda x: x["updated"], reverse=True)
+        recent = items[:recent_limit]
+
+        # 3) 渲染：先聚合，再列表
+        lines = [
+            f"笔记库概览（共 {len(self._index)} 篇）：",
+            f"- 类型分布: {type_dist}",
+            f"- 最近 {len(recent)} 篇（按更新时间倒序，更早的请用 search/read 查看）:",
+        ]
+        for it in recent:
+            lines.append(
+                f"  · [{it['type']}] {it['title']} | {it['char_count']} 字"
+                f" | 更新于 {it['updated'][:19].replace('T', ' ')} | 预览: {it['preview']}"
+            )
+        return "\n".join(lines)
 
     def get_parameters(self) -> List[ToolParameter]:
         return [
-            ToolParameter(name="action", type="string", description="create/read/update/list/search/delete"),
+            ToolParameter(name="action", type="string", description="create/read/update/list/search/delete/summary"),
             ToolParameter(name="title", type="string", description="笔记标题", required=False),
             ToolParameter(name="content", type="string", description="笔记内容", required=False),
             ToolParameter(name="query", type="string", description="搜索关键词", required=False),
