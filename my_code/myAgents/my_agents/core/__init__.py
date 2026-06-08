@@ -2,6 +2,7 @@
 
 from .agent import Agent
 from .config import Config
+from .context import ContextBuilder, ContextConfig, ContextPacket
 from .exceptions import (
     ConfigError,
     LLMError,
@@ -11,6 +12,7 @@ from .exceptions import (
     ToolNotFoundError,
 )
 from .llm_client import MyAgentLLM
+from .memory import MemoryItem, WorkingMemory
 from .message import Message
 
 __all__ = [
@@ -18,6 +20,11 @@ __all__ = [
     "Config",
     "MyAgentLLM",
     "Message",
+    "WorkingMemory",
+    "MemoryItem",
+    "ContextBuilder",
+    "ContextConfig",
+    "ContextPacket",
     "MyAgentError",
     "ConfigError",
     "LLMError",

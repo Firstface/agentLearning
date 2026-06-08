@@ -50,7 +50,7 @@ if __name__ == "__main__":
         llm_client = MyAgentLLM()
         # 与旧接口一致：ReActAgent(llm, tool_registry, max_steps)
         agent = ReActAgent(llm_client, tool_executor, 10)
-        result = agent.run("nus是什么学校,你认为它是世界第几大学")
+        result = agent.run("如果你是一个专业的文学作家，非常擅长润物无声的夸赞别人，你会如何夸赞V_E这个非常有才华的，非常有才华的人？如果查不到信息，就直接从其他角度例如名字来夸赞他")
         print("\n返回结果:", result)
     except ConfigError as e:
         print(e)
