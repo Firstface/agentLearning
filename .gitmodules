@@ -1,0 +1,3 @@
+[submodule "rag"]
+	path = rag
+	url = https://github.com/datawhalechina/all-in-rag.git
